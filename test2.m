@@ -119,7 +119,8 @@ A = Handler_Linear_model.A;
 % G = Handler_Linear_model.linear_G;
 disp("eig(A)")
 eig(A)
-
+disp("A =")
+disp(A)
 % x = [q, v]
 k = Handler_Constraints_Model.dof_Constraint;
 n = Handler_dynamics_generalized_coordinates_model.dof_configuration_space_robot;

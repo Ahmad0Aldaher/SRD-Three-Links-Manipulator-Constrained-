@@ -29,21 +29,32 @@ Handler_dynamics_GC_model_evaluator = SRDHandler_dynamics_GC_model_evaluator(...
 %     'finite_dif_step_q', 0.000001, 'finite_dif_step_v', 0.000001);
 
 %% Linear model finite difference A and B
-Handler_Linear_model = SRDHandler_Linear_model_finite_dif_constrained3(...
-     'Handler_dynamics_generalized_coordinates_model', Handler_dynamics_GC_model_evaluator, ...
-    'Handler_Constraints_Model', Handler_Constraints_Model, ...
-    'Handler_State', Handler_State, ...
-    'Handler_Controller', [], ...
-    'finite_dif_step_q', 0.000001, 'finite_dif_step_v', 0.000001,'finite_dif_step_u',0.000001);
 
-
-% Handler_Linear_model = SRDHandler_Linear_model_finite_dif_constrained_explicit(...
+% "Finding the A matrix only "
+% Handler_Linear_model = SRDHandler_Linear_model_finite_dif_constrained2(...
 %      'Handler_dynamics_generalized_coordinates_model', Handler_dynamics_GC_model_evaluator, ...
 %     'Handler_Constraints_Model', Handler_Constraints_Model, ...
 %     'Handler_State', Handler_State, ...
 %     'Handler_Controller', [], ...
-%     'finite_dif_step_q', 0.000001, 'finite_dif_step_v', 0.000001);
+%     'finite_dif_step_q', 0.00001, 'finite_dif_step_v', 0.00001);
 
+% "Finding A and B matrices taking into acount the perturbation is in the constained manifold"
+% Handler_Linear_model = SRDHandler_Linear_model_finite_dif_constrained3(...
+%      'Handler_dynamics_generalized_coordinates_model', Handler_dynamics_GC_model_evaluator, ...
+%     'Handler_Constraints_Model', Handler_Constraints_Model, ...
+%     'Handler_State', Handler_State, ...
+%     'Handler_Controller', [], ...
+%     'finite_dif_step_q', 0.00001, 'finite_dif_step_v', 0.00001,'finite_dif_step_u',0.00001);
+
+% "Finding A and B by nudge the system for each state or input and see if the constraints not violated "
+Handler_Linear_model = SRDHandler_Linear_model_finite_dif_constrained4(...
+     'Handler_dynamics_generalized_coordinates_model', Handler_dynamics_GC_model_evaluator, ...
+    'Handler_Constraints_Model', Handler_Constraints_Model, ...
+    'Handler_State', Handler_State, ...
+    'Handler_Controller', [], ...
+    'finite_dif_step_q', 0.00001, 'finite_dif_step_v', 0.00001,'finite_dif_step_u',0.00001);
+
+%%
 Handler_Constraints_Model.Handler_dynamics_generalized_coordinates_model = ...
     Handler_dynamics_generalized_coordinates_model;
 
@@ -104,11 +115,7 @@ Handler_Linear_model.Handler_Controller = dummy_controller;
 
 
 
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+%%
 Handler_Updater = SRDHandler_Updater({...
     Handler_Desired_State, ...
     Handler_State_StateSpace, ...
@@ -120,8 +127,9 @@ Handler_Updater = SRDHandler_Updater({...
     Handler_Linear_model
     });
 
-
 Handler_Updater.Update();
+
+%%
 
 A = Handler_Linear_model.A;
 B = Handler_Linear_model.B;
@@ -133,9 +141,9 @@ disp("B =")
 disp(B)
 
 
-disp("eig(A)")
-eig(A)
-
+disp("eig(A) =")
+disp(eig(A))
+%%
 % x = [q, v]
 k = Handler_Constraints_Model.dof_Constraint;
 n = Handler_dynamics_generalized_coordinates_model.dof_configuration_space_robot;
@@ -151,19 +159,57 @@ F = Handler_Constraints_Model.get_Jacobian(q);
 dF = Handler_Constraints_Model.get_Jacobian_derivative(q, v);
 % P = eye(n) - pinv(F)*F;
 
-Fss = [zeros(size(F')); F'];
-Gss = [dF, F];
-Pss = eye(2*n) - Fss*pinv(Gss*Fss)*Gss;
 G = [ F, zeros(size(F));
      dF, F];
 N = null(G);    
 
 
 
+%%
+Q=10*eye(6);
+R=1*eye(3);
+
+An=N'*A*N;
+Bn=N'*B;
+
+Qn=10*eye(2);
+Rn=1*eye(3);
+
+Kn = lqr(An, Bn,Qn,Rn)
+K = lqr(A, B,Q,R)
+
+%%
+
 save('A','A')
 save('B','B')
 save('J','F')
 save('dJ','dF')
+
+%%
+% % x = [q, v]
+% k = Handler_Constraints_Model.dof_Constraint;
+% n = Handler_dynamics_generalized_coordinates_model.dof_configuration_space_robot;
+% m = Handler_dynamics_generalized_coordinates_model.dof_control;
+% 
+% q = Handler_State.q;    v = Handler_State.v;    u = zeros(m, 1);
+
+% a = get_acceleration(q, v, u, ...
+%     Handler_dynamics_generalized_coordinates_model, ...
+%     Handler_Constraints_Model);
+
+% F = Handler_Constraints_Model.get_Jacobian(q);
+% dF = Handler_Constraints_Model.get_Jacobian_derivative(q, v);
+% % P = eye(n) - pinv(F)*F;
+% 
+% Fss = [zeros(size(F')); F'];
+% Gss = [dF, F];
+% Pss = eye(2*n) - Fss*pinv(Gss*Fss)*Gss;
+% G = [ F, zeros(size(F));
+%      dF, F];
+% N = null(G);    
+
+
+
 
 % 
 % 
@@ -183,3 +229,4 @@ save('dJ','dF')
 % %    -2.0944         0
 % %     2.1991         0
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

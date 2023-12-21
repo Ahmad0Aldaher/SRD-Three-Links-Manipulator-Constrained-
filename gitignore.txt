@@ -1,0 +1,7 @@
+# ignore all .mat files
+*.mat
+# ignore all files in these directories
+Constraints/
+Dynamics/
+InverseKinematics/
+Linearization_c/

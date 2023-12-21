@@ -1,4 +1,4 @@
-classdef SRDHandler_Linear_model_finite_dif_constrained3 < SRDHandler
+classdef SRDHandler_Linear_model_finite_dif_constrained4 < SRDHandler
     properties
         dof_state_space_robot;
         dof_configuration_space_robot;
@@ -29,7 +29,7 @@ classdef SRDHandler_Linear_model_finite_dif_constrained3 < SRDHandler
     end
     methods
         
-        function obj = SRDHandler_Linear_model_finite_dif_constrained3(varargin)
+        function obj = SRDHandler_Linear_model_finite_dif_constrained4(varargin)
             Parser = inputParser;
             Parser.FunctionName = 'SRDHandler_Linear_model_finite_dif_constrained';
             Parser.addOptional('Handler_dynamics_generalized_coordinates_model', []);
@@ -95,12 +95,18 @@ classdef SRDHandler_Linear_model_finite_dif_constrained3 < SRDHandler
             
             F = obj.Handler_Constraints_Model.get_Jacobian(q);
             %dF = obj.Handler_Constraints_Model.get_Jacobian_derivative(q, v);
-            P = eye(dof) - pinv(F)*F;
             
-            delta_Q = P * obj.finite_dif_step_q;
-            delta_V = P * obj.finite_dif_step_v;
-          
-            delta_U= P * obj.finite_dif_step_u;
+            %P = eye(dof) - pinv(F)*F;
+            
+            %delta_Q = P * obj.finite_dif_step_q;
+            %delta_V = P * obj.finite_dif_step_v;
+           
+            delta_Q = obj.finite_dif_step_q;
+            delta_V = obj.finite_dif_step_v;
+           
+
+            %delta_U= P * obj.finite_dif_step_u;
+            delta_U= obj.finite_dif_step_u;
 
 
             delta_A_q = zeros(dof, dof);  %delta_A_q = A21 * delta_Q 
@@ -110,41 +116,55 @@ classdef SRDHandler_Linear_model_finite_dif_constrained3 < SRDHandler
 
             for i = 1:dof
                 qi = q + delta_Q(:, i);
-                ai = obj.get_acceleration(qi, v, u);
                 
-                delta_A_q(:, i) = ai - a;
-                % A21(:, i) = (ai - a) / norm(delta_q);
-                 F = obj.Handler_Constraints_Model.get_Jacobian(qi);
-                 dF = obj.Handler_Constraints_Model.get_Jacobian_derivative(qi, v);
+                ai = obj.get_acceleration(qi, v, u);
 
+                delta_A_q(:, i) = (ai - a)/ norm(obj.finite_dif_step_q);
+                % A21(:, i) = (ai - a) / norm(delta_q);
+
+                F = obj.Handler_Constraints_Model.get_Jacobian(qi);
+                dF = obj.Handler_Constraints_Model.get_Jacobian_derivative(qi, v);
+                
+                constraint=F*ai+dF*v;
+
+                if norm(constraint)>0.000001
+                delta_A_q(:, i)=zeros(dof,1);
+                end
 
             end
-            A21 = delta_A_q * pinv(delta_Q);
+            A21 = delta_A_q;% * pinv(delta_Q);
             
             for i = 1:dof
-                
                 vi = v + delta_V(:, i);
                 ai = obj.get_acceleration(q, vi, u);
                 
-                delta_A_v(:, i) = ai - a;
+                delta_A_v(:, i) = (ai - a)/norm(obj.finite_dif_step_v);
                 % A22(:, i) = (ai - a) / norm(delta_v);
-                 F = obj.Handler_Constraints_Model.get_Jacobian(q);
-                 dF = obj.Handler_Constraints_Model.get_Jacobian_derivative(q, vi);
-                 F*vi;
-                 F*ai+dF*vi;
+                F = obj.Handler_Constraints_Model.get_Jacobian(q);
+                dF = obj.Handler_Constraints_Model.get_Jacobian_derivative(q, vi);
+                
+                constraint=F*ai+dF*vi;
+                if norm(constraint)>0.000001
+                    delta_A_v(:, i)=zeros(dof,1);
+                end
 
 
             end
-            A22 = delta_A_v * pinv(delta_V);
+            A22 = delta_A_v; %* pinv(delta_V);
             
 
 
             for i =1:dof_ctrl
                 ui=u+delta_U(:,i);
                 ai = obj.get_acceleration(q, v, ui);
-                delta_B_u(:, i) = ai - a;
+                delta_B_u(:, i) = (ai - a)/norm(obj.finite_dif_step_u);
+                
+                constraint=F*ai+dF*v;
+                if norm(constraint)>0.000001
+                    delta_B_u(:, i)=zeros(dof,1);
+                end
             end
-            B2 = delta_B_u * pinv(delta_U);
+            B2 = delta_B_u; %* pinv(delta_U);
 
 
 
